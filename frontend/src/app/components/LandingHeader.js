@@ -49,7 +49,7 @@ export default function Header() {
                 Security Dashboard
               </button>
             <button
-              onClick={() => (window.location.href = "/dashboard")}
+              onClick={() => (window.location.href = "/home")}
               className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-md transition-colors flex items-center gap-2 text-sm font-semibold"
             >
               <FaUserPlus className="w-4 h-4" />
