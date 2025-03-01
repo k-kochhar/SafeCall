@@ -1,7 +1,5 @@
 "use client";
 
-import { Button } from "@mui/material";
-
 import { FaUserPlus, FaSignInAlt } from "react-icons/fa";
 import Image from "next/image";
 
@@ -44,6 +42,12 @@ export default function Header() {
             your enterprise from the inside out.{" "}
           </p>
           <div className="mt-10 flex items-center gap-x-6">
+          <button
+                onClick={() => (window.location.href = "/dashboard")}
+                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-md transition-colors flex items-center gap-2 text-sm font-semibold"
+              >
+                Security Dashboard
+              </button>
             <button
               onClick={() => (window.location.href = "/dashboard")}
               className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-md transition-colors flex items-center gap-2 text-sm font-semibold"
@@ -57,78 +61,10 @@ export default function Header() {
             </button>
           </div>
 
-          {/* Logo Cloud Section */}
-          <div className="hidden mt-16 sm:mt-24 border-t border-zinc-800 pt-8">
-            <p className="text-sm font-semibold leading-6 text-zinc-400 mb-6">
-              Trusted by security teams worldwide
-            </p>
-            <div className="mt-4 grid grid-cols-3 md:grid-cols-6 w-full gap-4">
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/capitalone.com"
-                  alt="Capital One"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/jpmorganchase.com"
-                  alt="JPMorgan Chase"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/anduril.com"
-                  alt="Anduril"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/comcast.com"
-                  alt="Comcast"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/lockheedmartin.com"
-                  alt="Lockheed Martin"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-              <div className="relative h-20">
-                <Image
-                  className="rounded-sm opacity-80 hover:opacity-100 transition-all duration-300"
-                  src="https://logo.clearbit.com/nationwide.com"
-                  alt="Nationwide"
-                  fill
-                  style={{ objectFit: "contain" }}
-                />
-              </div>
-            </div>
-          </div>
         </div>
         <div className="mx-auto mt-16 flex max-w-2xl sm:mt-24 lg:mt-0 lg:mr-0 lg:ml-10 lg:max-w-none xl:ml-32">
           <div className="max-w-3xl flex-none sm:max-w-5xl lg:max-w-none">
             <div className="mt-10 flex items-center gap-x-6">
-              <button
-                onClick={() => (window.location.href = "/dashboard")}
-                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:bg-indigo-600 text-white px-4 py-2.5 rounded-md transition-colors flex items-center gap-2 text-sm font-semibold"
-              >
-                Security Dashboard
-              </button>
             </div>
           </div>
         </div>
