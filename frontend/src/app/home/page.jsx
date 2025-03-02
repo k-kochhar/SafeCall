@@ -55,7 +55,7 @@ export default function Dashboard() {
             <div className="h-12 w-12 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-full flex items-center justify-center mb-3 shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform">
               <PhoneIcon className="h-6 w-6 text-white" />
             </div>
-            <span className="font-medium text-white">Emergency Call</span>
+            <span className="font-medium text-white">Call Now</span>
             <span className="text-xs text-zinc-400 mt-1">Immediate assistance</span>
           </button>
           
