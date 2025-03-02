@@ -4,12 +4,12 @@ import { useState, useEffect } from "react";
 
 export default function DashboardTable() {
   const columns = [
-    { field: "id", headerName: "User ID", width: 50 }, //user id (uid)
-    { field: "name", headerName: "Name", width: 130 }, // firstName + lastName of user
-    { field: "time", headerName: "Date & Time", width: 130 }, //date and time of call
-    { field: "number", headerName: "Phone Number", width: 130 }, //user phone #
-    { field: "emergency", headerName: "Emergency Contact", width: 130 }, //emergency contact name: their #
-    { field: "notes", headerName: "Notes", width: 130 }, //background info for the user
+    { field: "id",        headerName: "User ID",            width: 50 }, //user id (uid)
+    { field: "name",      headerName: "Name",               width: 130 }, // firstName + lastName of user
+    { field: "time",      headerName: "Date & Time",        width: 130 }, //date and time of call
+    { field: "number",    headerName: "Phone Number",       width: 130 }, //user phone #
+    { field: "emergency", headerName: "Emergency Contact",  width: 130 }, //emergency contact name: their #
+    { field: "notes",     headerName: "Notes",              width: 130 }, //background info for the user
   ];
 
   const [rows, setRows] = useState([]);
