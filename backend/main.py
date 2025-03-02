@@ -257,7 +257,7 @@ async def initialize_session(openai_ws):
 
     # Uncomment the next line to have the AI speak first
     # await send_initial_conversation_item(openai_ws)
-    
+
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
@@ -271,20 +271,42 @@ app.add_middleware(
 async def home():
     return {"message": "SafeCall API is running!"}
 
-
 # New route to get all users from the Testing.Users collection
+# @app.get("/all-users/")
+# async def get_all_users():
+#     """Retrieve all users from the Testing.Users collection"""
+#     try:
+#         # Convert MongoDB cursor to list and convert ObjectId to string
+#         users = list(users_collection.find())
+#         for user in users:
+#             user["_id"] = str(user["_id"])
+#         return {"users": users}
+#     except Exception as e:
+#         logging.error(f"Error fetching all users: {e}")
+#         raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+def serialize_document(doc):
+    """Recursively convert ObjectId fields to strings."""
+    if isinstance(doc, list):
+        return [serialize_document(d) for d in doc]
+    elif isinstance(doc, dict):
+        return {k: serialize_document(v) for k, v in doc.items()}
+    elif isinstance(doc, ObjectId):
+        return str(doc)
+    else:
+        return doc
+
 @app.get("/all-users/")
 async def get_all_users():
     """Retrieve all users from the Testing.Users collection"""
     try:
-        # Convert MongoDB cursor to list and convert ObjectId to string
         users = list(users_collection.find())
-        for user in users:
-            user["_id"] = str(user["_id"])
+        users = serialize_document(users)  # Ensure full serialization
+
         return {"users": users}
     except Exception as e:
         logging.error(f"Error fetching all users: {e}")
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database error occurred")
 
 @app.get("/latest-calls/")
 async def get_latest_calls():
@@ -296,7 +318,6 @@ async def get_latest_calls():
     except Exception as e:
         logging.error(f"Error fetching latest calls: {e}")
         raise HTTPException(status_code=500, detail="Database error")
-
 
 # when a call is made, the call history is updated
 @app.post("/update-call-history/")
