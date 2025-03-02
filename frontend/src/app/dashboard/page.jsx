@@ -1,25 +1,26 @@
 "use client";
 
-import { Fragment, useState, useEffect } from 'react';
-import { Disclosure, Menu, Transition, Dialog } from '@headlessui/react';
-import { 
-  Bars3Icon, 
-  BellIcon, 
-  XMarkIcon, 
+import { Fragment, useState, useEffect } from "react";
+import { Disclosure, Menu, Transition, Dialog } from "@headlessui/react";
+import {
+  Bars3Icon,
+  BellIcon,
+  XMarkIcon,
   ArrowRightIcon,
   CogIcon,
-  MicrophoneIcon
-} from '@heroicons/react/24/outline';
-import { 
-  PhoneIcon, 
-  ClockIcon, 
-  ShieldCheckIcon, 
+  MicrophoneIcon,
+} from "@heroicons/react/24/outline";
+import {
+  PhoneIcon,
+  ClockIcon,
+  ShieldCheckIcon,
   UserIcon,
   ChartBarIcon,
   CalendarIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/solid';
-import Image from 'next/image';
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/solid";
+import Image from "next/image";
+import DashboardTable from "../components/DashboardTable";
 
 const user = {
   name: "Alex Johnson",
@@ -70,8 +71,8 @@ function classNames(...classes) {
 
 export default function Dashboard() {
   const [isActiveCallModalOpen, setIsActiveCallModalOpen] = useState(false);
-  const [testMessage, setTestMessage] = useState('');
-  const [testSpeaker, setTestSpeaker] = useState('Caller');
+  const [testMessage, setTestMessage] = useState("");
+  const [testSpeaker, setTestSpeaker] = useState("Caller");
   const [activeCall, setActiveCall] = useState(null);
   const [transcriptions, setTranscriptions] = useState([]);
   const [insights, setInsights] = useState([]);
@@ -80,26 +81,30 @@ export default function Dashboard() {
   useEffect(() => {
     if (isActiveCallModalOpen && !activeCall) {
       startCall({
-        caller: 'Friend',
-        riskLevel: 'medium'
+        caller: "Friend",
+        riskLevel: "medium",
       });
     }
   }, [isActiveCallModalOpen, activeCall]);
-  
+
   // End the call when the modal is closed
   useEffect(() => {
     if (!isActiveCallModalOpen && activeCall) {
       endCall();
     }
   }, [isActiveCallModalOpen, activeCall]);
-  
+
   // Map insight type to icon
   const getInsightIcon = (type) => {
     switch (type) {
-      case 'warning': return ExclamationTriangleIcon;
-      case 'alert': return ExclamationTriangleIcon;
-      case 'info': return PhoneIcon;
-      default: return MicrophoneIcon;
+      case "warning":
+        return ExclamationTriangleIcon;
+      case "alert":
+        return ExclamationTriangleIcon;
+      case "info":
+        return PhoneIcon;
+      default:
+        return MicrophoneIcon;
     }
   };
 
@@ -107,9 +112,9 @@ export default function Dashboard() {
   const startCall = (callInfo) => {
     setActiveCall({
       ...callInfo,
-      startTime: new Date().toISOString()
+      startTime: new Date().toISOString(),
     });
-    
+
     // Fetch initial data when starting a call
     fetchLatestData();
   };
@@ -124,7 +129,7 @@ export default function Dashboard() {
   // Function to send a test message to the webhook
   const sendTestMessage = async () => {
     if (!testMessage.trim()) return;
-    
+
     try {
       // Create a sample data object
       const data = {
@@ -134,91 +139,99 @@ export default function Dashboard() {
             id: transcriptions.length + 1,
             speaker: testSpeaker,
             text: testMessage,
-            time: new Date().toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }),
-            sentiment: testSpeaker === 'Caller' ? 'anxious' : 'supportive'
-          }
+            time: new Date().toLocaleTimeString([], {
+              minute: "2-digit",
+              second: "2-digit",
+            }),
+            sentiment: testSpeaker === "Caller" ? "anxious" : "supportive",
+          },
         ],
-        insights: testSpeaker === 'Caller' && testMessage.toLowerCase().includes('help') ? [
-          ...insights,
-          {
-            id: insights.length + 1,
-            type: 'warning',
-            text: `Detected keyword: "help" in ${testSpeaker}'s message`
-          }
-        ] : insights
+        insights:
+          testSpeaker === "Caller" && testMessage.toLowerCase().includes("help")
+            ? [
+                ...insights,
+                {
+                  id: insights.length + 1,
+                  type: "warning",
+                  text: `Detected keyword: "help" in ${testSpeaker}'s message`,
+                },
+              ]
+            : insights,
       };
-      
+
       // Send to the webhook
-      const response = await fetch('/api/webhook', {
-        method: 'POST',
+      const response = await fetch("/api/webhook", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(data),
       });
-      
+
       if (!response.ok) {
-        throw new Error('Failed to send data to webhook');
+        throw new Error("Failed to send data to webhook");
       }
-      
+
       // Clear the input field
-      setTestMessage('');
-      
+      setTestMessage("");
+
       // Fetch the latest data
       fetchLatestData();
     } catch (error) {
-      console.error('Error sending test message:', error);
-      alert('Failed to send test message: ' + error.message);
+      console.error("Error sending test message:", error);
+      alert("Failed to send test message: " + error.message);
     }
   };
-  
+
   // Function to fetch the latest data from the webhook
   const fetchLatestData = async () => {
     try {
-      const response = await fetch('/api/webhook');
-      
+      const response = await fetch("/api/webhook");
+
       if (!response.ok) {
-        throw new Error('Failed to fetch data from webhook');
+        throw new Error("Failed to fetch data from webhook");
       }
-      
+
       const data = await response.json();
-      
+
       // Update the local state with the fetched data
       if (data.transcriptions && data.transcriptions.length > 0) {
         setTranscriptions(data.transcriptions);
       }
-      
+
       if (data.insights && data.insights.length > 0) {
         setInsights(data.insights);
       }
     } catch (error) {
-      console.error('Error fetching latest data:', error);
+      console.error("Error fetching latest data:", error);
     }
   };
-  
+
   // Fetch the latest data when the modal is opened
   useEffect(() => {
     if (isActiveCallModalOpen) {
       fetchLatestData();
-      
+
       // Set up polling to fetch data every 2 seconds
       const intervalId = setInterval(fetchLatestData, 2000);
-      
+
       // Clean up the interval when the modal is closed
       return () => clearInterval(intervalId);
     }
   }, [isActiveCallModalOpen]);
-  
+
   // Calculate call duration
   const getCallDuration = () => {
-    if (!activeCall) return '00:00';
-    
+    if (!activeCall) return "00:00";
+
     const startTime = new Date(activeCall.startTime);
     const now = new Date();
     const diffInSeconds = Math.floor((now - startTime) / 1000);
-    const minutes = Math.floor(diffInSeconds / 60).toString().padStart(2, '0');
-    const seconds = (diffInSeconds % 60).toString().padStart(2, '0');
-    
+    const minutes = Math.floor(diffInSeconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const seconds = (diffInSeconds % 60).toString().padStart(2, "0");
+
     return `${minutes}:${seconds}`;
   };
 
@@ -394,8 +407,10 @@ export default function Dashboard() {
       <header className="bg-zinc-900 shadow-sm">
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold tracking-tight text-white">Admin Dashboard</h1>
-            <button 
+            <h1 className="text-3xl font-bold tracking-tight text-white">
+              Admin Dashboard
+            </h1>
+            <button
               onClick={() => setIsActiveCallModalOpen(true)}
               className="flex items-center gap-2 bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-teal-500/10 hover:from-blue-500/20 hover:via-cyan-500/20 hover:to-teal-500/20 border border-cyan-500/30 rounded-lg px-4 py-2 transition-all duration-300"
             >
@@ -403,7 +418,9 @@ export default function Dashboard() {
                 <PhoneIcon className="h-5 w-5 text-cyan-400" />
                 <span className="absolute -top-1 -right-1 h-2.5 w-2.5 bg-green-500 rounded-full animate-pulse"></span>
               </div>
-              <span className="text-md font-medium text-white">Active Call</span>
+              <span className="text-md font-medium text-white">
+                Active Call
+              </span>
             </button>
           </div>
         </div>
@@ -460,9 +477,7 @@ export default function Dashboard() {
               </span>
             </button>
 
-            <button 
-              className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 hover:border-cyan-500/40 rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 group"
-            >
+            <button className="bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 hover:border-cyan-500/40 rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 group">
               <div className="h-12 w-12 bg-gradient-to-r from-cyan-500 via-blue-500 to-teal-500 rounded-full flex items-center justify-center mb-3 shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform">
                 <UserIcon className="h-6 w-6 text-white" />
               </div>
@@ -551,7 +566,11 @@ export default function Dashboard() {
 
       {/* Active Call Modal */}
       <Transition appear show={isActiveCallModalOpen} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={() => setIsActiveCallModalOpen(false)}>
+        <Dialog
+          as="div"
+          className="relative z-50"
+          onClose={() => setIsActiveCallModalOpen(false)}
+        >
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -599,41 +618,49 @@ export default function Dashboard() {
                       </button>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Transcription Panel */}
                     <div className="md:col-span-2 bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50 h-96 overflow-y-auto">
                       <div className="space-y-4">
                         {transcriptions.map((item) => (
-                          <div 
-                            key={item.id} 
+                          <div
+                            key={item.id}
                             className={`flex gap-3 ${
-                              item.speaker === 'You' ? 'justify-end' : 'justify-start'
+                              item.speaker === "You"
+                                ? "justify-end"
+                                : "justify-start"
                             }`}
                           >
-                            {item.speaker !== 'You' && (
+                            {item.speaker !== "You" && (
                               <div className="h-8 w-8 bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 rounded-full flex items-center justify-center flex-shrink-0">
                                 <UserIcon className="h-4 w-4 text-cyan-400" />
                               </div>
                             )}
-                            <div 
+                            <div
                               className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                                item.speaker === 'You' 
-                                  ? 'bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 text-white' 
-                                  : 'bg-zinc-700/50 text-zinc-200'
+                                item.speaker === "You"
+                                  ? "bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 text-white"
+                                  : "bg-zinc-700/50 text-zinc-200"
                               }`}
                             >
                               <div className="flex justify-between items-start mb-1">
-                                <span className={`text-xs font-medium ${
-                                  item.speaker === 'You' ? 'text-cyan-300' : 'text-blue-300'
-                                }`}>
+                                <span
+                                  className={`text-xs font-medium ${
+                                    item.speaker === "You"
+                                      ? "text-cyan-300"
+                                      : "text-blue-300"
+                                  }`}
+                                >
                                   {item.speaker}
                                 </span>
-                                <span className="text-xs text-zinc-400 ml-2">{item.time}</span>
+                                <span className="text-xs text-zinc-400 ml-2">
+                                  {item.time}
+                                </span>
                               </div>
                               <p className="text-sm">{item.text}</p>
                             </div>
-                            {item.speaker === 'You' && (
+                            {item.speaker === "You" && (
                               <div className="h-8 w-8 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
                                 <UserIcon className="h-4 w-4 text-white" />
                               </div>
@@ -641,27 +668,29 @@ export default function Dashboard() {
                           </div>
                         ))}
                       </div>
-                      
+
                       {/* Test message input for development */}
                       <div className="mt-4 pt-4 border-t border-zinc-700/50">
                         <div className="flex gap-2 items-center">
-                          <select 
-                            value={testSpeaker} 
+                          <select
+                            value={testSpeaker}
                             onChange={(e) => setTestSpeaker(e.target.value)}
                             className="bg-zinc-800 text-white text-sm rounded-md border border-zinc-700 px-2 py-1.5"
                           >
                             <option value="Caller">Caller</option>
                             <option value="You">You</option>
                           </select>
-                          <input 
-                            type="text" 
-                            value={testMessage} 
+                          <input
+                            type="text"
+                            value={testMessage}
                             onChange={(e) => setTestMessage(e.target.value)}
                             placeholder="Type a test message..."
                             className="flex-1 bg-zinc-800 text-white text-sm rounded-md border border-zinc-700 px-3 py-1.5"
-                            onKeyDown={(e) => e.key === 'Enter' && sendTestMessage()}
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && sendTestMessage()
+                            }
                           />
-                          <button 
+                          <button
                             onClick={sendTestMessage}
                             className="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white text-sm rounded-md px-3 py-1.5"
                           >
@@ -669,70 +698,87 @@ export default function Dashboard() {
                           </button>
                         </div>
                         <p className="text-xs text-zinc-500 mt-1">
-                          This is a development tool to simulate incoming transcriptions
+                          This is a development tool to simulate incoming
+                          transcriptions
                         </p>
                       </div>
                     </div>
-                    
+
                     {/* Insights Panel */}
                     <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50 h-96 overflow-y-auto">
-                      <h4 className="text-lg font-medium text-white mb-4">Call Insights</h4>
-                      
+                      <h4 className="text-lg font-medium text-white mb-4">
+                        Call Insights
+                      </h4>
+
                       <div className="space-y-4">
                         {insights.map((insight) => {
                           const InsightIcon = getInsightIcon(insight.type);
                           return (
-                            <div 
-                              key={insight.id} 
+                            <div
+                              key={insight.id}
                               className={`p-3 rounded-lg border ${
-                                insight.type === 'warning' 
-                                  ? 'border-yellow-500/30 bg-yellow-500/10' 
-                                  : insight.type === 'alert'
-                                  ? 'border-red-500/30 bg-red-500/10'
-                                  : 'border-blue-500/30 bg-blue-500/10'
+                                insight.type === "warning"
+                                  ? "border-yellow-500/30 bg-yellow-500/10"
+                                  : insight.type === "alert"
+                                  ? "border-red-500/30 bg-red-500/10"
+                                  : "border-blue-500/30 bg-blue-500/10"
                               }`}
                             >
                               <div className="flex items-start gap-3">
-                                <div className={`p-1.5 rounded-full ${
-                                  insight.type === 'warning' 
-                                    ? 'bg-yellow-500/20' 
-                                    : insight.type === 'alert'
-                                    ? 'bg-red-500/20'
-                                    : 'bg-blue-500/20'
-                                }`}>
-                                  <InsightIcon className={`h-4 w-4 ${
-                                    insight.type === 'warning' 
-                                      ? 'text-yellow-400' 
-                                      : insight.type === 'alert'
-                                      ? 'text-red-400'
-                                      : 'text-blue-400'
-                                  }`} />
+                                <div
+                                  className={`p-1.5 rounded-full ${
+                                    insight.type === "warning"
+                                      ? "bg-yellow-500/20"
+                                      : insight.type === "alert"
+                                      ? "bg-red-500/20"
+                                      : "bg-blue-500/20"
+                                  }`}
+                                >
+                                  <InsightIcon
+                                    className={`h-4 w-4 ${
+                                      insight.type === "warning"
+                                        ? "text-yellow-400"
+                                        : insight.type === "alert"
+                                        ? "text-red-400"
+                                        : "text-blue-400"
+                                    }`}
+                                  />
                                 </div>
-                                <p className="text-sm text-zinc-300">{insight.text}</p>
+                                <p className="text-sm text-zinc-300">
+                                  {insight.text}
+                                </p>
                               </div>
                             </div>
                           );
                         })}
-                        
+
                         {insights.length === 0 && (
                           <div className="text-center py-8 text-zinc-500">
                             <MicrophoneIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
                             <p>No insights yet</p>
-                            <p className="text-xs mt-1">Insights will appear as the call progresses</p>
+                            <p className="text-xs mt-1">
+                              Insights will appear as the call progresses
+                            </p>
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="mt-6">
-                        <h4 className="text-sm font-medium text-white mb-3">Call Details</h4>
+                        <h4 className="text-sm font-medium text-white mb-3">
+                          Call Details
+                        </h4>
                         <div className="space-y-2 text-sm">
                           <div className="flex justify-between">
                             <span className="text-zinc-400">Duration:</span>
-                            <span className="text-white">{getCallDuration()}</span>
+                            <span className="text-white">
+                              {getCallDuration()}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-zinc-400">Caller:</span>
-                            <span className="text-white">{activeCall?.caller || 'Unknown'}</span>
+                            <span className="text-white">
+                              {activeCall?.caller || "Unknown"}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span className="text-zinc-400">Status:</span>
@@ -740,11 +786,13 @@ export default function Dashboard() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-zinc-400">Risk Level:</span>
-                            <span className="text-yellow-400">{activeCall?.riskLevel || 'Unknown'}</span>
+                            <span className="text-yellow-400">
+                              {activeCall?.riskLevel || "Unknown"}
+                            </span>
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="mt-6">
                         <button className="w-full bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 hover:from-blue-600 hover:via-cyan-600 hover:to-teal-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-lg shadow-cyan-500/20">
                           <ShieldCheckIcon className="h-5 w-5 mr-2" />

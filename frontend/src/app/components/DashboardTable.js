@@ -7,30 +7,39 @@ export default function DashboardTable() {
     { field: "id", headerName: "User ID", width: 50 }, //user id (uid)
     { field: "name", headerName: "Name", width: 120 }, // firstName + lastName of user
     { field: "number", headerName: "Phone Number", width: 120 }, //user phone #
-    { field: "emergency", headerName: "Emergency Contact", width: 120 }, //emergency contact name: their #
+    { field: "emergency", headerName: "Emergency Contact", width: 150 }, //emergency contact name: their #
     { field: "background", headerName: "Background Info", width: 120 }, //background info for user
     { field: "callHistory", headerName: "Previous Call History", width: 120 }, //previous call history
+    { field: "profile", headerName: "User Profile", width: 120 }, // age, pronouns, etc of user
   ];
 
   const [rows, setRows] = useState();
 
   useEffect(() => {
-    fetch("http://127.0.0.1:3001/all-users/") // Use the backend API endpoint
+    fetch("http://127.0.0.1:3001/all-users/")
       .then((response) => response.json())
       .then((data) => {
-        console.log(data);
-        if (data.users) {
+        if (data) {
           const formattedRows = data.users.map((user, index) => ({
             id: index + 1, // DataGrid needs a unique id
             name: `${user.firstName} ${user.lastName}`,
-            phone_number: user.phoneNumber || "N/A",
-            emergency_contact: user.emergencyContact || "N/A",
-            background_info: user.backgroundInfo || "N/A",
-            previous_call_history: user.previousCallHistory,
-            profile: user.backgroundInfo || "N/A",
+            number: user.phoneNumber || "N/A",
+            emergency: user.emergencyContact
+              ? `${user.emergencyContact.firstName} ${user.emergencyContact.lastName} ${user.emergencyContact.phoneNumber}`
+              : "N/A",
+            background: user.backgroundInfo || "N/A",
+            callHistory: user.previousCallHistory
+              ? user.previousCallHistory
+                  .map(
+                    (history) =>
+                      `${history.notes} ${history.urgency} ${history.timestamp}`
+                  )
+                  .join(", ")
+              : "N/A",
+            profile: user.profile || "N/A",
           }));
+          console.log("Formatted Rows:", formattedRows); // Log the formatted rows
           setRows(formattedRows);
-          console.log(formattedRows);
         }
       })
       .catch((error) => console.error("Error fetching data:", error));
