@@ -1,15 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import Image from "next/image";
 import { ChevronDownIcon, PhoneIcon, ClockIcon, ShieldCheckIcon, UserIcon } from "@heroicons/react/24/solid";
 import { BellIcon, CogIcon, ArrowRightIcon } from "@heroicons/react/24/outline";
+import { Dialog, Transition } from "@headlessui/react";
+import { toast } from "react-hot-toast";
 
 export default function Dashboard() {
   const [selectedPerson, setSelectedPerson] = useState("");
   const [selectedScenario, setSelectedScenario] = useState("");
   const [selectedTiming, setSelectedTiming] = useState("");
   const [selectedUrgency, setSelectedUrgency] = useState("");
+  const [isCallModalOpen, setIsCallModalOpen] = useState(false);
 
   const handleCallNow = () => {
     console.log("Calling now with settings:", {
@@ -18,7 +21,32 @@ export default function Dashboard() {
       timing: selectedTiming,
       urgency: selectedUrgency,
     });
-    // Add API call logic here
+    // Open the call modal instead of making the call directly
+    setIsCallModalOpen(true);
+  };
+
+  const initiateCall = () => {
+    // Use the tel: protocol to initiate a phone call
+    window.location.href = "tel:+18777063518";
+    
+    // Show a toast notification
+    toast.success("Initiating call...", {
+      icon: '📞',
+      style: {
+        borderRadius: '10px',
+        background: '#1f2937',
+        color: '#fff',
+        border: '1px solid #3b82f6',
+      },
+    });
+    
+    // Close the modal
+    setIsCallModalOpen(false);
+  };
+
+  const handleQuickCallNow = () => {
+    // Open the call modal
+    setIsCallModalOpen(true);
   };
 
   return (
@@ -51,7 +79,9 @@ export default function Dashboard() {
 
         {/* Quick Actions */}
         <div className="grid grid-cols-2 gap-4 mb-8">
-          <button className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-500/40 rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 group">
+          <button 
+            onClick={handleQuickCallNow}
+            className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 hover:border-blue-500/40 rounded-xl p-4 flex flex-col items-center justify-center transition-all duration-300 group">
             <div className="h-12 w-12 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-full flex items-center justify-center mb-3 shadow-lg shadow-cyan-500/20 group-hover:scale-110 transition-transform">
               <PhoneIcon className="h-6 w-6 text-white" />
             </div>
@@ -226,6 +256,82 @@ export default function Dashboard() {
           <span className="text-xs mt-1">Settings</span>
         </div>
       </nav>
+
+      {/* Call Modal */}
+      <Transition appear show={isCallModalOpen} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setIsCallModalOpen(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black/80" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/50 p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex flex-col items-center">
+                    <div className="h-20 w-20 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-cyan-500/20 animate-pulse">
+                      <PhoneIcon className="h-10 w-10 text-white" />
+                    </div>
+                    
+                    <Dialog.Title
+                      as="h3"
+                      className="text-2xl font-bold text-white text-center"
+                    >
+                      Ready to Call
+                    </Dialog.Title>
+                    
+                    <div className="mt-2">
+                      <p className="text-center text-zinc-400">
+                        You're about to call SafeCall's secure line
+                      </p>
+                    </div>
+
+                    <div className="mt-6 mb-8">
+                      <p className="text-2xl font-mono text-center text-white tracking-wider">
+                        +1 (877) 706-3518
+                      </p>
+                    </div>
+
+                    <div className="flex gap-4 w-full">
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                        onClick={() => setIsCallModalOpen(false)}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        className="flex-1 rounded-lg bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 hover:from-blue-600 hover:via-cyan-600 hover:to-teal-600 px-4 py-3 text-sm font-medium text-white shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center"
+                        onClick={initiateCall}
+                      >
+                        <PhoneIcon className="h-4 w-4 mr-2" />
+                        Call Now
+                      </button>
+                    </div>
+                  </div>
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
     </div>
   );
 }
