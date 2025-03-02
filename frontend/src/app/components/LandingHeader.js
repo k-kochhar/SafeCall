@@ -1,6 +1,5 @@
 "use client";
 
-import { FaUserPlus, FaSignInAlt, FaPhone } from "react-icons/fa";
 import { PhoneIcon } from "@heroicons/react/24/solid";
 import Image from "next/image";
 
