@@ -1,0 +1,19 @@
+[
+  {
+    "role": "user",
+    "content": "Hey, can you hear me?",
+    "timestamp": "2025-03-02 09:54:43",
+    "confidence": "0.98762906"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey! Yeah, I can hear you. I saw your location earlier, you doing alright? You still at that spot you sent me?",
+    "timestamp": "2025-03-02 09:54:45"
+  },
+  {
+    "role": "user",
+    "content": "Turn.",
+    "timestamp": "2025-03-02 09:55:01",
+    "confidence": "0.0"
+  }
+]

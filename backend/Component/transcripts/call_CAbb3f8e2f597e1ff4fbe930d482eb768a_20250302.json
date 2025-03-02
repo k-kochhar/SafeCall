@@ -1,0 +1,19 @@
+[
+  {
+    "role": "user",
+    "content": "Take me home.",
+    "timestamp": "2025-03-02 09:57:48",
+    "confidence": "0.6274441"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey! I saw your location earlier. You doing alright? You still at that spot you sent me? Need me to come get you? No big deal.",
+    "timestamp": "2025-03-02 09:57:50"
+  },
+  {
+    "role": "user",
+    "content": "Pineapple.",
+    "timestamp": "2025-03-02 09:58:02",
+    "confidence": "0.96155393"
+  }
+]

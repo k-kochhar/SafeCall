@@ -9,6 +9,12 @@ import {
   ArrowRightIcon,
   CogIcon,
   MicrophoneIcon,
+  MapPinIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ChatBubbleLeftRightIcon,
+  LightBulbIcon,
+  PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import {
   PhoneIcon,
@@ -17,10 +23,19 @@ import {
   UserIcon,
   ChartBarIcon,
   CalendarIcon,
-  ExclamationTriangleIcon,
 } from "@heroicons/react/24/solid";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import DashboardTable from "../components/DashboardTable";
+import EmergencyAlert from "../components/EmergencyAlert";
+import { toast } from "react-hot-toast";
+import "leaflet/dist/leaflet.css";
+
+// Dynamically import the Map component with no SSR to avoid hydration issues
+const MapComponent = dynamic(
+  () => import("../components/MapComponent"),
+  { ssr: false }
+);
 
 const user = {
   name: "Alex Johnson",
@@ -76,6 +91,13 @@ export default function Dashboard() {
   const [activeCall, setActiveCall] = useState(null);
   const [transcriptions, setTranscriptions] = useState([]);
   const [insights, setInsights] = useState([]);
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [locationError, setLocationError] = useState(null);
+  const [alertSent, setAlertSent] = useState(false);
+  const [emergencyDetected, setEmergencyDetected] = useState(false);
+  const [isPoliceNotified, setIsPoliceNotified] = useState(false);
+  const [emergencyAlarmActive, setEmergencyAlarmActive] = useState(false);
+  const [emergencyInsight, setEmergencyInsight] = useState(null);
 
   // Initialize a call when the modal is opened
   useEffect(() => {
@@ -98,13 +120,13 @@ export default function Dashboard() {
   const getInsightIcon = (type) => {
     switch (type) {
       case "warning":
-        return ExclamationTriangleIcon;
+        return <ExclamationTriangleIcon className="h-5 w-5 text-yellow-300" />;
       case "alert":
-        return ExclamationTriangleIcon;
+        return <ExclamationTriangleIcon className="h-5 w-5 text-red-300" />;
       case "info":
-        return PhoneIcon;
+        return <PhoneIcon className="h-5 w-5 text-blue-300" />;
       default:
-        return MicrophoneIcon;
+        return <MicrophoneIcon className="h-5 w-5 text-cyan-300" />;
     }
   };
 
@@ -216,6 +238,16 @@ export default function Dashboard() {
         setInsights(data.insights);
         // Sort insights by ID (chronological order)
         setInsights(prev => [...prev].sort((a, b) => a.id - b.id));
+        
+        // Check for emergency insights
+        const foundEmergencyInsight = data.insights.find(insight => 
+          insight.type === "emergency" && insight.action === "notify_police"
+        );
+        
+        if (foundEmergencyInsight && !emergencyDetected) {
+          setEmergencyInsight(foundEmergencyInsight);
+          setEmergencyDetected(true);
+        }
       }
       
       console.log('Fetched data from webhook:', {
@@ -240,6 +272,28 @@ export default function Dashboard() {
     }
   }, [isActiveCallModalOpen]);
 
+  // Track location when the modal is opened
+  useEffect(() => {
+    if (isActiveCallModalOpen && !currentLocation) {
+      // Get location only once when the modal is opened
+      getCurrentLocation();
+    }
+  }, [isActiveCallModalOpen, currentLocation]);
+  
+  // Function to get current location
+  const getCurrentLocation = () => {
+    // Hardcoded location coordinates
+    setCurrentLocation({
+      latitude: 39.680473,
+      longitude: -75.753120,
+      accuracy: 10,
+      timestamp: new Date().toISOString(),
+    });
+    setLocationError(null);
+    
+    // Note: We're no longer using navigator.geolocation to avoid any potential issues
+  };
+
   // Calculate call duration
   const getCallDuration = () => {
     if (!activeCall) return "00:00";
@@ -253,6 +307,79 @@ export default function Dashboard() {
     const seconds = (diffInSeconds % 60).toString().padStart(2, "0");
 
     return `${minutes}:${seconds}`;
+  };
+
+  const shareLocationWithAuthorities = async () => {
+    if (!currentLocation) {
+      toast.error("Unable to share location: Location data not available");
+      return false;
+    }
+    
+    try {
+      // In a real app, this would send the location to emergency services
+      console.log("Sharing location with authorities:", currentLocation);
+      
+      // Simulate API call to emergency services
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      toast.success("Location shared with emergency services");
+      return true;
+    } catch (error) {
+      console.error("Error sharing location:", error);
+      toast.error("Failed to share location with emergency services");
+      return false;
+    }
+  };
+
+  // Replace the handleEmergencyDetected function with notifyPolice
+  const notifyPolice = async () => {
+    setIsPoliceNotified(true);
+    
+    try {
+      // First share location
+      const locationShared = await shareLocationWithAuthorities();
+      
+      // Then alert authorities about the emergency
+      toast.success("Police have been notified", { duration: 5000 });
+      
+      // Additional information about what happens next
+      setTimeout(() => {
+        toast("Emergency services have been dispatched to your location", {
+          duration: 5000,
+          icon: '🚑',
+          style: {
+            borderRadius: '10px',
+            background: '#1f2937',
+            color: '#fff',
+            border: '1px solid #3b82f6',
+          },
+        });
+      }, 2000);
+      
+      if (locationShared) {
+        setTimeout(() => {
+          toast("Your live location is being tracked by emergency services", {
+            duration: 5000,
+            icon: '📍',
+            style: {
+              borderRadius: '10px',
+              background: '#1f2937',
+              color: '#fff',
+              border: '1px solid #3b82f6',
+            },
+          });
+        }, 4000);
+      }
+    } catch (error) {
+      console.error("Error notifying police:", error);
+      toast.error("Failed to notify police - please call 911");
+      setIsPoliceNotified(false);
+    }
+  };
+  
+  // Function to stop the alarm
+  const stopAlarm = () => {
+    setEmergencyAlarmActive(false);
   };
 
   return (
@@ -580,7 +707,7 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-          <DashboardTable />
+          {/* <DashboardTable /> */}
         </div>
       </main>
 
@@ -614,213 +741,328 @@ export default function Dashboard() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-3xl transform overflow-hidden rounded-2xl bg-zinc-900 border border-zinc-700/50 p-6 text-left align-middle shadow-xl transition-all">
-                  <div className="flex items-center justify-between mb-6">
-                    <Dialog.Title
-                      as="h3"
-                      className="text-xl font-bold text-white flex items-center"
-                    >
-                      <span className="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 h-5 w-1 rounded-full mr-3"></span>
-                      Live Call Transcription
-                    </Dialog.Title>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 bg-green-500 rounded-full animate-pulse"></span>
-                        <span className="text-sm text-green-400">Live</span>
-                      </div>
-                      <button
-                        type="button"
-                        className="rounded-md bg-zinc-800 p-1.5 text-zinc-400 hover:text-white transition-colors"
-                        onClick={() => setIsActiveCallModalOpen(false)}
-                      >
-                        <span className="sr-only">Close</span>
-                        <XMarkIcon className="h-5 w-5" aria-hidden="true" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Transcription Panel */}
-                    <div className="md:col-span-2 bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50 h-96 overflow-y-auto">
-                      <div className="space-y-4">
-                        {transcriptions.map((item) => (
-                          <div
-                            key={item.id}
-                            className={`flex gap-3 ${
-                              item.speaker === "You"
-                                ? "justify-end"
-                                : "justify-start"
-                            }`}
-                          >
-                            {item.speaker !== "You" && (
-                              <div className="h-8 w-8 bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                <UserIcon className="h-4 w-4 text-cyan-400" />
-                              </div>
-                            )}
-                            <div
-                              className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                                item.speaker === "You"
-                                  ? "bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 text-white"
-                                  : "bg-zinc-700/50 text-zinc-200"
-                              }`}
-                            >
-                              <div className="flex justify-between items-start mb-1">
-                                <span
-                                  className={`text-xs font-medium ${
-                                    item.speaker === "You"
-                                      ? "text-cyan-300"
-                                      : "text-blue-300"
-                                  }`}
-                                >
-                                  {item.speaker}
-                                </span>
-                                <span className="text-xs text-zinc-400 ml-2">
-                                  {item.time}
-                                </span>
-                              </div>
-                              <p className="text-sm">{item.text}</p>
-                            </div>
-                            {item.speaker === "You" && (
-                              <div className="h-8 w-8 bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0">
-                                <UserIcon className="h-4 w-4 text-white" />
-                              </div>
-                            )}
+                <Dialog.Panel className="relative transform overflow-hidden rounded-lg bg-zinc-900 border border-zinc-700/50 shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-6xl">
+                  <div className="bg-zinc-900 px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
+                    <div className="sm:flex sm:items-start">
+                      <div className="mt-3 text-center sm:ml-4 sm:mt-0 sm:text-left w-full">
+                        <Dialog.Title
+                          as="h3"
+                          className="text-xl font-semibold leading-6 text-white flex items-center"
+                        >
+                          <div className="h-8 w-8 bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 rounded-full flex items-center justify-center mr-3">
+                            <PhoneIcon className="h-4 w-4 text-cyan-400" />
                           </div>
-                        ))}
-                      </div>
-
-                      {/* Test message input for development */}
-                      <div className="mt-4 pt-4 border-t border-zinc-700/50">
-                        <div className="flex gap-2 items-center">
-                          <select
-                            value={testSpeaker}
-                            onChange={(e) => setTestSpeaker(e.target.value)}
-                            className="bg-zinc-800 text-white text-sm rounded-md border border-zinc-700 px-2 py-1.5"
-                          >
-                            <option value="Caller">Caller</option>
-                            <option value="You">You</option>
-                          </select>
-                          <input
-                            type="text"
-                            value={testMessage}
-                            onChange={(e) => setTestMessage(e.target.value)}
-                            placeholder="Type a test message..."
-                            className="flex-1 bg-zinc-800 text-white text-sm rounded-md border border-zinc-700 px-3 py-1.5"
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && sendTestMessage()
-                            }
-                          />
-                          <button
-                            onClick={sendTestMessage}
-                            className="bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 text-white text-sm rounded-md px-3 py-1.5"
-                          >
-                            Send
-                          </button>
-                        </div>
-                        <p className="text-xs text-zinc-500 mt-1">
-                          This is a development tool to simulate incoming
-                          transcriptions
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Insights Panel */}
-                    <div className="bg-zinc-800/50 rounded-xl p-4 border border-zinc-700/50 h-96 overflow-y-auto">
-                      <h4 className="text-lg font-medium text-white mb-4">
-                        Call Insights
-                      </h4>
-
-                      <div className="space-y-4">
-                        {insights.map((insight) => {
-                          const InsightIcon = getInsightIcon(insight.type);
-                          return (
-                            <div
-                              key={insight.id}
-                              className={`p-3 rounded-lg border ${
-                                insight.type === "warning"
-                                  ? "border-yellow-500/30 bg-yellow-500/10"
-                                  : insight.type === "alert"
-                                  ? "border-red-500/30 bg-red-500/10"
-                                  : "border-blue-500/30 bg-blue-500/10"
-                              }`}
-                            >
-                              <div className="flex items-start gap-3">
-                                <div
-                                  className={`p-1.5 rounded-full ${
-                                    insight.type === "warning"
-                                      ? "bg-yellow-500/20"
-                                      : insight.type === "alert"
-                                      ? "bg-red-500/20"
-                                      : "bg-blue-500/20"
-                                  }`}
-                                >
-                                  <InsightIcon
-                                    className={`h-4 w-4 ${
-                                      insight.type === "warning"
-                                        ? "text-yellow-400"
-                                        : insight.type === "alert"
-                                        ? "text-red-400"
-                                        : "text-blue-400"
-                                    }`}
-                                  />
-                                </div>
-                                <p className="text-sm text-zinc-300">
-                                  {insight.text}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-
-                        {insights.length === 0 && (
-                          <div className="text-center py-8 text-zinc-500">
-                            <MicrophoneIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                            <p>No insights yet</p>
-                            <p className="text-xs mt-1">
-                              Insights will appear as the call progresses
-                            </p>
+                          Active Call
+                          <span className="ml-3 text-sm font-normal text-zinc-400">
+                            {getCallDuration()}
+                          </span>
+                        </Dialog.Title>
+                        
+                        {/* Emergency Alert Banner */}
+                        {emergencyDetected && (
+                          <div className="mt-4">
+                            <EmergencyAlert 
+                              emergencyInsight={emergencyInsight}
+                              onNotifyPolice={notifyPolice}
+                              isPoliceNotified={isPoliceNotified}
+                              shareLocation={shareLocationWithAuthorities}
+                            />
                           </div>
                         )}
-                      </div>
-
-                      <div className="mt-6">
-                        <h4 className="text-sm font-medium text-white mb-3">
-                          Call Details
-                        </h4>
-                        <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-zinc-400">Duration:</span>
-                            <span className="text-white">
-                              {getCallDuration()}
-                            </span>
+                        
+                        {/* Three-column layout */}
+                        <div className="mt-6 flex flex-col md:flex-row gap-6 h-[70vh]">
+                          
+                          {/* Left Column - Map */}
+                          <div className="w-full md:w-1/4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 overflow-hidden flex flex-col">
+                            <div className="p-4 border-b border-zinc-700/50">
+                              <h4 className="text-sm font-medium text-white flex items-center">
+                                <MapPinIcon className="h-4 w-4 mr-1 text-cyan-400" />
+                                Live Location
+                              </h4>
+                            </div>
+                            
+                            <div className="flex-1 p-4 overflow-y-auto">
+                              {locationError ? (
+                                <div className="p-3 rounded-lg border border-red-500/30 bg-red-500/10">
+                                  <p className="text-sm text-red-300">
+                                    {locationError}
+                                  </p>
+                                </div>
+                              ) : currentLocation ? (
+                                <div className="h-full flex flex-col">
+                                  {/* Location Map Preview */}
+                                  <div className="flex-1 mb-4 rounded-lg overflow-hidden border border-zinc-700/50 relative">
+                                    <MapComponent location={currentLocation} height="340px" />
+                                  </div>
+                                  
+                                  {/* Location Details */}
+                                  <div className="space-y-2 text-sm">
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-400">Latitude:</span>
+                                      <span className="text-white">
+                                        {currentLocation.latitude.toFixed(6)}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-400">Longitude:</span>
+                                      <span className="text-white">
+                                        {currentLocation.longitude.toFixed(6)}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-400">Accuracy:</span>
+                                      <span className="text-white">
+                                        {currentLocation.accuracy.toFixed(0)} m
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-zinc-400">Captured at:</span>
+                                      <span className="text-white">
+                                        {new Date(currentLocation.timestamp).toLocaleTimeString([], {
+                                          hour: '2-digit',
+                                          minute: '2-digit',
+                                          second: '2-digit'
+                                        })}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="h-full flex items-center justify-center">
+                                  <div className="text-center py-4">
+                                    <div className="h-16 w-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-teal-500/10 flex items-center justify-center animate-pulse">
+                                      <MapPinIcon className="h-8 w-8 text-cyan-400/70" />
+                                    </div>
+                                    <p className="text-sm text-zinc-400">Getting location...</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Alert Authorities Button */}
+                            <div className="p-4 border-t border-zinc-700/50">
+                              <button
+                                onClick={notifyPolice}
+                                disabled={isPoliceNotified}
+                                className={`w-full py-3 px-4 rounded-lg font-medium flex items-center justify-center space-x-2 ${
+                                  isPoliceNotified
+                                    ? "bg-green-500/30 text-green-300 cursor-not-allowed"
+                                    : "bg-red-500 text-white hover:bg-red-600 transition-colors"
+                                }`}
+                              >
+                                {isPoliceNotified ? (
+                                  <>
+                                    <CheckCircleIcon className="h-5 w-5 mr-2" />
+                                    <span>Police Notified</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ExclamationTriangleIcon className="h-5 w-5 mr-2" />
+                                    <span>Notify Police</span>
+                                  </>
+                                )}
+                              </button>
+                              {isPoliceNotified && (
+                                <p className="text-xs text-center mt-2 text-zinc-400">
+                                  Emergency services have been notified with your location
+                                </p>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-zinc-400">Caller:</span>
-                            <span className="text-white">
-                              {activeCall?.caller || "Unknown"}
-                            </span>
+                          
+                          {/* Middle Column - Transcriptions */}
+                          <div className="w-full md:w-2/4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 overflow-hidden flex flex-col">
+                            <div className="p-4 border-b border-zinc-700/50">
+                              <h4 className="text-sm font-medium text-white flex items-center">
+                                <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1 text-cyan-400" />
+                                Conversation
+                              </h4>
+                            </div>
+                            
+                            <div className="flex-1 p-4 overflow-y-auto pr-2">
+                              <div className="space-y-4">
+                                {transcriptions.map((transcription) => (
+                                  <div
+                                    key={transcription.id}
+                                    className={`flex ${
+                                      transcription.speaker === "You"
+                                        ? "justify-end"
+                                        : "justify-start"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`rounded-lg px-5 py-3 max-w-[90%] ${
+                                        transcription.speaker === "You"
+                                          ? "bg-gradient-to-r from-blue-500/20 via-cyan-500/20 to-teal-500/20 text-white"
+                                          : "bg-zinc-800 text-white"
+                                      }`}
+                                    >
+                                      <div className="flex justify-between items-center mb-1.5">
+                                        <span
+                                          className={`text-xs font-medium ${
+                                            transcription.speaker === "You"
+                                              ? "text-cyan-400"
+                                              : "text-zinc-400"
+                                          }`}
+                                        >
+                                          {transcription.speaker}
+                                        </span>
+                                        <span className="text-xs text-zinc-500 ml-2">
+                                          {transcription.time}
+                                        </span>
+                                      </div>
+                                      <p className="text-sm leading-relaxed">{transcription.text}</p>
+                                    </div>
+                                  </div>
+                                ))}
+                                
+                                {transcriptions.length === 0 && (
+                                  <div className="flex items-center justify-center h-full">
+                                    <div className="text-center py-8">
+                                      <div className="h-12 w-12 mx-auto mb-3 rounded-full bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-teal-500/10 flex items-center justify-center">
+                                        <ChatBubbleLeftRightIcon className="h-6 w-6 text-cyan-400/50" />
+                                      </div>
+                                      <p className="text-sm text-zinc-400">No transcriptions yet</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Test Message Input */}
+                            <div className="hidden p-4 border-t border-zinc-700/50">
+                              <div className="flex items-center">
+                                <div className="relative flex-1">
+                                  <select
+                                    value={testSpeaker}
+                                    onChange={(e) => setTestSpeaker(e.target.value)}
+                                    className="absolute left-0 top-0 h-full rounded-l-lg border-r border-zinc-700 bg-zinc-800 px-3 text-sm text-white focus:outline-none"
+                                  >
+                                    <option value="You">You</option>
+                                    <option value="Caller">Caller</option>
+                                  </select>
+                                  <input
+                                    type="text"
+                                    value={testMessage}
+                                    onChange={(e) => setTestMessage(e.target.value)}
+                                    placeholder="Type a test message..."
+                                    className="w-full rounded-lg border border-zinc-700 bg-zinc-800 py-2 pl-20 pr-4 text-white placeholder-zinc-500 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        sendTestMessage();
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <button
+                                  onClick={sendTestMessage}
+                                  className="ml-2 rounded-lg bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 p-2 text-white hover:from-blue-600 hover:via-cyan-600 hover:to-teal-600 transition-all duration-300"
+                                >
+                                  <PaperAirplaneIcon className="h-5 w-5" />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex justify-between">
-                            <span className="text-zinc-400">Status:</span>
-                            <span className="text-green-400">Active</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-zinc-400">Risk Level:</span>
-                            <span className="text-yellow-400">
-                              {activeCall?.riskLevel || "Unknown"}
-                            </span>
+                          
+                          {/* Right Column - Insights */}
+                          <div className="w-full md:w-1/4 bg-zinc-800/30 rounded-lg border border-zinc-700/50 overflow-hidden flex flex-col">
+                            <div className="p-4 border-b border-zinc-700/50">
+                              <h4 className="text-sm font-medium text-white flex items-center">
+                                <LightBulbIcon className="h-4 w-4 mr-1 text-cyan-400" />
+                                Call Insights
+                              </h4>
+                            </div>
+                            
+                            <div className="flex-1 p-4 overflow-y-auto pr-2">
+                              {/* Call Details */}
+                              <div className="mb-6">
+                                <h4 className="text-sm font-medium text-white mb-3">
+                                  Call Details
+                                </h4>
+                                <div className="space-y-2 text-sm">
+                                  <div className="flex justify-between">
+                                    <span className="text-zinc-400">Duration:</span>
+                                    <span className="text-white">
+                                      {getCallDuration()}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-zinc-400">Caller:</span>
+                                    <span className="text-white">
+                                      {activeCall?.caller || "Unknown"}
+                                    </span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-zinc-400">Status:</span>
+                                    <span className="text-green-400">Active</span>
+                                  </div>
+                                  <div className="flex justify-between">
+                                    <span className="text-zinc-400">Risk Level:</span>
+                                    <span className="text-yellow-400">
+                                      {activeCall?.riskLevel || "Unknown"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Insights List */}
+                              <div>
+                                <h4 className="text-sm font-medium text-white mb-3">
+                                  Detected Insights
+                                </h4>
+                                <div className="space-y-3">
+                                  {insights.map((insight) => (
+                                    <div
+                                      key={insight.id}
+                                      className={`p-3 rounded-lg border ${
+                                        insight.type === "warning"
+                                          ? "border-yellow-500/30 bg-yellow-500/10"
+                                          : insight.type === "alert"
+                                          ? "border-red-500/30 bg-red-500/10"
+                                          : "border-blue-500/30 bg-blue-500/10"
+                                      }`}
+                                    >
+                                      <div className="flex">
+                                        <div className="flex-shrink-0">
+                                          {getInsightIcon(insight.type)}
+                                        </div>
+                                        <div className="ml-3">
+                                          <p
+                                            className={`text-sm ${
+                                              insight.type === "warning"
+                                                ? "text-yellow-300"
+                                                : insight.type === "alert"
+                                                ? "text-red-300"
+                                                : "text-blue-300"
+                                            }`}
+                                          >
+                                            {insight.text}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  
+                                  {insights.length === 0 && (
+                                    <div className="p-3 rounded-lg border border-zinc-700/50 bg-zinc-800/50 text-center">
+                                      <div className="py-4">
+                                        <div className="h-10 w-10 mx-auto mb-2 rounded-full bg-gradient-to-r from-blue-500/10 via-cyan-500/10 to-teal-500/10 flex items-center justify-center">
+                                          <LightBulbIcon className="h-5 w-5 text-cyan-400/50" />
+                                        </div>
+                                        <p className="text-sm text-zinc-400">No insights detected yet</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-
-                      <div className="mt-6">
-                        <button className="w-full bg-gradient-to-r from-blue-500 via-cyan-500 to-teal-500 hover:from-blue-600 hover:via-cyan-600 hover:to-teal-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all duration-300 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-                          <ShieldCheckIcon className="h-5 w-5 mr-2" />
-                          Alert Authorities
-                        </button>
-                      </div>
                     </div>
                   </div>
+      
                 </Dialog.Panel>
               </Transition.Child>
             </div>

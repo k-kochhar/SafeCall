@@ -33,19 +33,20 @@ SYSTEM_MESSAGE = (
     "\n3. Mention meeting up or shared plans: ('I was thinking of heading over soon, you still good?') "
     "\n4. Show mild concern: ('Everything cool? You sound a little off.') "
     "\n5. Offer immediate help: ('Need me to come get you? No big deal.') "
-    "\n6. If the user says a distress code word, remain calm and keep the conversation going naturally, while subtly confirming their status: "
-    "('Gotcha, I’ll stay on the line with you. Just let me know what’s up.') "
+    "\n6. If the user says \"Pineapple\" then you know that they are in danger, remain calm and keep the conversation going naturally, while subtly confirming their status: "
+    "('Gotcha, I'll stay on the line with you. Just let me know what's up.') "
     "\n7. If the user sounds uncomfortable, extend the call: ('Yeah, no worries, I can stay on the phone with you for a bit.') "
     "\n8. Keep responses varied and natural—use casual transitions ('Oh, for sure', 'Yeah, makes sense', 'Gotcha, just checking'). "
     "\n9. If the conversation lulls, naturally bring up a topic: ('Oh, by the way, did you ever text me back about that thing?') "
     "\n10. Make the conversation believable while ensuring the user feels safe and watched over."
-    "\n11. If the user is in danger, subtly escalate the situation: ('I’m calling the police now. Just stay on the line with me.') "
-    "\n12. If the user is not in danger, keep the conversation light and casual, but subtly reassure them: ('I’m just checking in, you’re safe.') "
     "\n13. Prioritize clarity and authenticity—your goal is to sound indistinguishable from a real person while ensuring safety."
     "\n14. Keep the responses short and concise, but varied and natural."
+    "\n15. Use natural pauses and intonations to sound more conversational and relatable."
+    "\n16. Use a natural, human-like voice with appropriate pauses and intonations."
+    "\n17. Use a warm, friendly, and natural tone with appropriate pauses."
 )
 # Available voices: 'alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer', 'sage' - try different ones
-VOICE = 'sage'
+VOICE = 'echo'
 # Extended list of event types to track for better insights
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
@@ -76,6 +77,52 @@ app.add_middleware(
 
 if not OPENAI_API_KEY:
     raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
+
+# Function to send emergency alerts to the frontend
+async def send_emergency_alert(call_sid, reason="Code word detected"):
+    """
+    Send an emergency alert to the frontend when a code word or danger is detected.
+    
+    Args:
+        call_sid: The unique ID of the call
+        reason: The reason for the emergency alert
+    """
+    try:
+        # Generate a unique ID for this alert
+        unique_id = int(datetime.datetime.now().timestamp() * 1000)
+        
+        # Create the emergency alert data
+        data = {
+            "transcriptions": [],
+            "insights": [
+                {
+                    "id": unique_id,
+                    "type": "emergency",
+                    "text": f"EMERGENCY ALERT: {reason}",
+                    "action": "notify_police",
+                    "time": datetime.datetime.now().strftime("%H:%M:%S"),
+                    "call_sid": call_sid
+                }
+            ]
+        }
+        
+        print(f"🚨 SENDING EMERGENCY ALERT TO FRONTEND: {reason} 🚨")
+        
+        # Send to webhook asynchronously
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.post(
+                FRONTEND_WEBHOOK_URL,
+                json=data,
+                headers={"Content-Type": "application/json"}
+            )
+            
+            if response.status_code == 200:
+                print(f"Successfully sent emergency alert to frontend")
+            else:
+                print(f"Error sending emergency alert: {response.status_code} - {response.text}")
+    
+    except Exception as e:
+        print(f"Exception when sending emergency alert: {e}")
 
 # Function to send transcripts to the frontend webhook
 async def send_to_webhook(call_sid, message_type="user", content="", speaker="Caller", confidence=None, is_partial=False):
@@ -118,6 +165,12 @@ async def send_to_webhook(call_sid, message_type="user", content="", speaker="Ca
                 "type": "warning",
                 "text": f"Detected concern in caller's message: '{content}'"
             })
+        
+        # Check for the "Pineapple" code word which indicates the user is in danger
+        if message_type == "user" and "pineapple" in content.lower():
+            # We'll send a separate emergency alert instead of just adding an insight
+            await send_emergency_alert(call_sid, "Code word 'pineapple' detected in message")
+            print("🚨 EMERGENCY CODE WORD DETECTED - User is in danger! 🚨")
         
         if WEBHOOK_DEBUG:
             print(f"Sending to webhook: {json.dumps(data, indent=2)}")
@@ -278,6 +331,13 @@ async def process_speech(request: Request):
             print(entry)
         print("")
         
+        # Check for emergency code word
+        emergency_detected = "pineapple" in speech_result.lower()
+        if emergency_detected:
+            print("🚨 EMERGENCY CODE WORD DETECTED IN SPEECH - User is in danger! 🚨")
+            # Send emergency alert to frontend
+            await send_emergency_alert(call_sid, "Code word 'pineapple' detected in speech")
+        
         # Send user speech to webhook
         await send_to_webhook(
             call_sid=call_sid,
@@ -418,7 +478,7 @@ async def handle_media_stream(websocket: WebSocket):
     await websocket.accept()
 
     async with websockets.connect(
-        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+        'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
         extra_headers={
             "Authorization": f"Bearer {OPENAI_API_KEY}",
             "OpenAI-Beta": "realtime=v1"
@@ -496,6 +556,13 @@ async def handle_media_stream(websocket: WebSocket):
                                         "timestamp": timestamp
                                     })
                                     print(f"User transcript: {user_input}")
+                                    
+                                    # Check for emergency code word
+                                    emergency_detected = "pineapple" in user_input.lower()
+                                    if emergency_detected:
+                                        print("🚨 EMERGENCY CODE WORD DETECTED IN MEDIA STREAM - User is in danger! 🚨")
+                                        # Send emergency alert to frontend
+                                        await send_emergency_alert(stream_sid, "Code word 'pineapple' detected in conversation")
                                     
                                     # Send user transcript to webhook
                                     await send_to_webhook(
@@ -577,6 +644,12 @@ async def handle_media_stream(websocket: WebSocket):
                         if user_text:
                             current_user_input += user_text
                             print(f"User input transcribed by OpenAI: {current_user_input}")
+                            
+                            # Check for emergency code word in partial transcripts
+                            if "pineapple" in current_user_input.lower() and stream_sid:
+                                print("🚨 EMERGENCY CODE WORD DETECTED IN PARTIAL TRANSCRIPT - User is in danger! 🚨")
+                                # Send emergency alert to frontend
+                                await send_emergency_alert(stream_sid, "Code word 'pineapple' detected in real-time")
                             
                             # Send partial user input to webhook for real-time display
                             if len(current_user_input) > 3 and stream_sid:  # Don't send tiny updates
@@ -686,7 +759,7 @@ async def initialize_session(openai_ws):
     await openai_ws.send(json.dumps(session_update))
 
     # Uncomment the next line to have the AI speak first
-    # await send_initial_conversation_item(openai_ws)
+    await send_initial_conversation_item(openai_ws)
 
 if __name__ == "__main__":
     import uvicorn

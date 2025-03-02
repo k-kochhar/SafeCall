@@ -1,0 +1,19 @@
+[
+  {
+    "role": "user",
+    "content": "How you doing?",
+    "timestamp": "2025-03-02 09:40:43",
+    "confidence": "0.8959558"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey! I'm doing alright, just thought I'd check in on you. I saw your location earlier\u2014are you doing okay? You still at that spot you sent me?",
+    "timestamp": "2025-03-02 09:40:44"
+  },
+  {
+    "role": "user",
+    "content": "Yeah, I'm there. I'm not I'm on my way there. I just. Yeah, thanks for calling me.",
+    "timestamp": "2025-03-02 09:41:00",
+    "confidence": "0.7708603"
+  }
+]

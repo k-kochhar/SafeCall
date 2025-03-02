@@ -1,0 +1,30 @@
+[
+  {
+    "role": "user",
+    "content": "Are you doing?",
+    "timestamp": "2025-03-02 10:09:18",
+    "confidence": "0.87539464"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey! I'm doing alright, thanks for asking. How about you? I saw your location earlier, you doing okay? You still at that spot you sent me?",
+    "timestamp": "2025-03-02 10:09:19"
+  },
+  {
+    "role": "user",
+    "content": "I was actually wondering about dinner. I was hoping to get some pineapple pizza.",
+    "timestamp": "2025-03-02 10:09:35",
+    "confidence": "0.5332313"
+  },
+  {
+    "role": "assistant",
+    "content": "Gotcha, I'll stay on the line with you. Just let me know what's up. You still good for me to come over soon?",
+    "timestamp": "2025-03-02 10:09:36"
+  },
+  {
+    "role": "user",
+    "content": "Yeah, thank you for sure.",
+    "timestamp": "2025-03-02 10:09:48",
+    "confidence": "0.74854267"
+  }
+]

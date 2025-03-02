@@ -1,0 +1,19 @@
+[
+  {
+    "role": "user",
+    "content": "Hey, how you doing?",
+    "timestamp": "2025-03-02 09:34:28",
+    "confidence": "0.8947714"
+  },
+  {
+    "role": "assistant",
+    "content": "Hey! I'm doing alright, thanks for asking. How about you? Everything okay on your end?",
+    "timestamp": "2025-03-02 09:34:29"
+  },
+  {
+    "role": "user",
+    "content": "I think I'm doing.",
+    "timestamp": "2025-03-02 09:34:40",
+    "confidence": "0.98762906"
+  }
+]
