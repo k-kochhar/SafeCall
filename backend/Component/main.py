@@ -4,12 +4,12 @@ import json
 import base64
 import asyncio
 import websockets
-from fastapi import FastAPI, WebSocket, Request, Form
+import httpx
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
-from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream, Gather
+from twilio.twiml.voice_response import VoiceResponse, Connect, Say, Stream, Gather, Redirect
 from dotenv import load_dotenv
-from datetime import datetime
 
 load_dotenv()
 
@@ -30,35 +30,15 @@ LOG_EVENT_TYPES = [
     'session.created'
 ]
 SHOW_TIMING_MATH = False
-WEBHOOK_URL = os.getenv('WEBHOOK_URL', 'http://localhost:3000/api/webhook')
+CALL_DURATION_LIMIT = 30  # 4 minutes in seconds : change to 240 sec
+
+# Store conversation history
+conversation_history = {}
 
 app = FastAPI()
 
 if not OPENAI_API_KEY:
     raise ValueError('Missing the OpenAI API key. Please set it in the .env file.')
-
-def log_formatted_message(message_type, content):
-    """Print a formatted log message with clear visual separation."""
-    if message_type == "AI_RESPONSE":
-        print("\n" + "*"*80)
-        print(f"AI RESPONSE:")
-        print("*"*80)
-        print(content)
-        print("*"*80 + "\n")
-    elif message_type == "ERROR":
-        print("\n" + "!"*80)
-        print(f"ERROR:")
-        print("!"*80)
-        print(content)
-        print("!"*80 + "\n")
-    elif message_type == "EVENT":
-        print("\n" + ">"*80)
-        print(f"EVENT: {content}")
-        print(">"*80 + "\n")
-    else:
-        print("\n" + "-"*80)
-        print(f"{message_type}: {content}")
-        print("-"*80 + "\n")
 
 @app.get("/", response_class=JSONResponse)
 async def index_page():
@@ -66,213 +46,202 @@ async def index_page():
 
 @app.api_route("/incoming-call", methods=["GET", "POST"])
 async def handle_incoming_call(request: Request):
-    """Handle incoming call and return TwiML response to connect to Media Stream."""
+    """Initial entry point for incoming calls."""
+    form_data = await request.form()
+    call_sid = form_data.get('CallSid', 'unknown')
+    
+    # Initialize conversation history for this call
+    conversation_history[call_sid] = []
+    print(f"New call received: {call_sid}")
+    
+    response = VoiceResponse()
+    response.say("Welcome to the AI assistant service.")
+    
+    # Redirect to the gather endpoint to start the conversation loop
+    response.redirect('/start-gather')
+    
+    return HTMLResponse(content=str(response), media_type="application/xml")
+
+@app.api_route("/start-gather", methods=["GET", "POST"])
+async def start_gather(request: Request):
+    """Start the Gather process for user input."""
+    form_data = await request.form()
+    call_sid = form_data.get('CallSid', 'unknown')
+    
     response = VoiceResponse()
     
-    # Add Gather for transcription with partial results
+    # Create a Gather with speech recognition enabled
     gather = Gather(
         input='speech',
-        action='/transcription-handler',
+        action='/process-speech',
         method='POST',
-        speechModel='phone_call',
-        enhanced=True,
-        language='en-US',
+        timeout=5,
         speechTimeout='auto',
+        enhanced=True,
         profanityFilter=False,
-        partialResultCallback='/partial-transcription',
-        partialResultCallbackMethod='POST'
+        actionOnEmptyResult=True,
+        language='en-US'
     )
     
-    # <Say> punctuation to improve text-to-speech flow
-    gather.say("Please wait while we connect your call to the A. I. voice assistant, powered by Twilio and the Open-A.I. Realtime API")
-    gather.pause(length=1)
-    gather.say("O.K. you can start talking!")
-    
+    gather.say("")
     response.append(gather)
     
-    # Continue with media stream connection
+    # If Gather times out with no input and actionOnEmptyResult is false
+    response.say("I didn't hear anything. Could you repeat that?")
+    response.redirect('/start-gather')
+    
+    return HTMLResponse(content=str(response), media_type="application/xml")
+
+async def get_ai_response(user_query, call_sid):
+    """Get a response from OpenAI API."""
+    # Get conversation history for context
+    messages = [{"role": "system", "content": SYSTEM_MESSAGE}]
+    
+    # Add conversation history (up to last 5 exchanges)
+    history = conversation_history.get(call_sid, [])
+    for entry in history[-10:]:  # Last 10 entries
+        if entry.startswith("User: "):
+            messages.append({"role": "user", "content": entry[6:]})
+        elif entry.startswith("AI: "):
+            messages.append({"role": "assistant", "content": entry[4:]})
+    
+    # Add current query
+    messages.append({"role": "user", "content": user_query})
+    
+    # Make the API call
+    try:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": "gpt-4o",
+            "messages": messages,
+            "max_tokens": 250,
+            "temperature": 0.7,
+        }
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(url, headers=headers, json=data)
+            
+        if response.status_code == 200:
+            response_data = response.json()
+            ai_message = response_data["choices"][0]["message"]["content"]
+            return ai_message
+        else:
+            print(f"Error from OpenAI API: {response.status_code} - {response.text}")
+            return "I'm sorry, I'm having trouble connecting to my brain right now. Could you try again?"
+    except Exception as e:
+        print(f"Exception when calling OpenAI API: {e}")
+        return "I apologize, but I encountered an error processing your request. Let's try again."
+
+@app.api_route("/process-speech", methods=["GET", "POST"])
+async def process_speech(request: Request):
+    """Process the gathered speech and generate an AI response."""
+    form_data = await request.form()
+    call_sid = form_data.get('CallSid', 'unknown')
+    speech_result = form_data.get('SpeechResult', '')
+    confidence = form_data.get('Confidence', '0')
+    
+    # Add to conversation history and log
+    if call_sid not in conversation_history:
+        conversation_history[call_sid] = []
+    
+    if speech_result:
+        # Log detailed information about the speech recognition
+        print(f"TRANSCRIPTION - Call {call_sid}:")
+        print(f"User said: \"{speech_result}\"")
+        print(f"Confidence: {confidence}")
+        
+        # Add to conversation history
+        conversation_history[call_sid].append(f"User: {speech_result}")
+        
+        # Print full conversation history
+        print("\nFull Conversation History:")
+        for entry in conversation_history[call_sid]:
+            print(entry)
+        print("")
+        
+        # Get AI response from OpenAI
+        ai_response = await get_ai_response(speech_result, call_sid)
+        
+        # Add AI response to conversation history
+        conversation_history[call_sid].append(f"AI: {ai_response}")
+        
+        # Create TwiML response
+        response = VoiceResponse()
+        response.say(ai_response)
+    else:
+        print(f"No speech detected for call {call_sid}")
+        conversation_history[call_sid].append("User: [No speech detected]")
+        
+        # Create TwiML response
+        response = VoiceResponse()
+        response.say("I didn't understand what you said. Let's try again.")
+    
+    # Would you like to continue or switch to media stream?
+    if len(conversation_history[call_sid]) > 10:
+        # Option to switch to media stream after some exchanges
+        gather = Gather(
+            input='dtmf',
+            action='/handle-continue-choice',
+            method='POST',
+            timeout=3,
+            numDigits=1
+        )
+        gather.say("Press 1 to continue this conversation format, or press 2 to switch to a more natural conversational mode.")
+        response.append(gather)
+        response.redirect('/start-gather')  # Default if no key is pressed
+    else:
+        # Continue with gather by default
+        response.redirect('/start-gather')
+    
+    return HTMLResponse(content=str(response), media_type="application/xml")
+
+@app.api_route("/handle-continue-choice", methods=["GET", "POST"])
+async def handle_continue_choice(request: Request):
+    """Handle the user's choice to continue with Gather or switch to media stream."""
+    form_data = await request.form()
+    call_sid = form_data.get('CallSid', 'unknown')
+    digits = form_data.get('Digits', '')
+    
+    response = VoiceResponse()
+    
+    if digits == '2':
+        # User chose to switch to media stream
+        response.say("Switching to natural conversation mode. You can now speak freely with the AI assistant.")
+        response.redirect('/connect-to-ai')
+    else:
+        # User chose to continue with Gather or didn't choose (default)
+        response.say("Continuing with the current conversation format.")
+        response.redirect('/start-gather')
+    
+    return HTMLResponse(content=str(response), media_type="application/xml")
+
+@app.api_route("/connect-to-ai", methods=["GET", "POST"])
+async def connect_to_ai(request: Request):
+    """Connect directly to the AI using the media stream."""
+    form_data = await request.form()
+    call_sid = form_data.get('CallSid', 'unknown')
+    
+    response = VoiceResponse()
+    response.say("Connecting you directly to the AI assistant.")
+    
+    # Get the host for the media stream URL
     host = request.url.hostname
+    
+    # Create a Connect with Stream for the media stream
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
     
     return HTMLResponse(content=str(response), media_type="application/xml")
 
-@app.api_route("/transcription-handler", methods=["POST"])
-async def handle_transcription(request: Request):
-    """Handle transcription results from Gather."""
-    form_data = await request.form()
-    speech_result = form_data.get('SpeechResult', '')
-    confidence = form_data.get('Confidence', '0.0')
-    call_sid = form_data.get('CallSid', '')
-    
-    # Print transcription in a more visible way
-    print("\n" + "="*80)
-    print(f"TRANSCRIPTION [Call: {call_sid}] [Confidence: {confidence}]")
-    print("-"*80)
-    print(f"CALLER: {speech_result}")
-    print("="*80 + "\n")
-    
-    # Send transcription to webhook
-    if speech_result:
-        try:
-            # Get current timestamp in MM:SS format
-            current_time = datetime.now().strftime("%M:%S")
-            # Use timestamp in milliseconds for a unique ID
-            unique_id = int(datetime.now().timestamp() * 1000)
-            
-            # Basic sentiment analysis (this is very simple - you might want to use a proper NLP service)
-            sentiment = "neutral"
-            if any(word in speech_result.lower() for word in ["help", "emergency", "urgent", "scared", "afraid"]):
-                sentiment = "urgent"
-            elif any(word in speech_result.lower() for word in ["happy", "great", "good", "thanks", "thank"]):
-                sentiment = "positive"
-            
-            # Create data payload
-            data = {
-                "transcriptions": [
-                    {
-                        "id": unique_id,  # Use unique timestamp as ID
-                        "speaker": "Caller",
-                        "text": speech_result,
-                        "time": current_time,
-                        "sentiment": sentiment
-                    }
-                ],
-                "insights": []
-            }
-            
-            # Add insights based on content
-            if sentiment == "urgent":
-                data["insights"].append({
-                    "id": unique_id + 1,  # Ensure unique ID
-                    "type": "warning",
-                    "text": f"Detected urgency in caller's message: '{speech_result}'"
-                })
-            
-            # Add confidence as insight
-            data["insights"].append({
-                "id": unique_id + 2,  # Ensure unique ID
-                "type": "info",
-                "text": f"Transcription confidence: {confidence}"
-            })
-            
-            # Print the data being sent to webhook
-            log_formatted_message("WEBHOOK", f"Sending to webhook: {json.dumps(data, indent=2)}")
-            
-            # Send to webhook asynchronously
-            asyncio.create_task(send_to_webhook(data))
-        except Exception as e:
-            log_formatted_message("ERROR", f"Error processing transcription: {e}")
-    
-    # Continue the call with another Gather to keep transcribing
-    response = VoiceResponse()
-    gather = Gather(
-        input='speech',
-        action='/transcription-handler',
-        method='POST',
-        speechModel='phone_call',
-        enhanced=True,
-        language='en-US',
-        speechTimeout='auto',
-        profanityFilter=False
-    )
-    
-    # Don't say anything this time, just listen
-    response.append(gather)
-    
-    # Also continue with the media stream for the AI conversation
-    return HTMLResponse(content=str(response), media_type="application/xml")
-
-@app.api_route("/partial-transcription", methods=["POST"])
-async def handle_partial_transcription(request: Request):
-    """Handle partial transcription results from Gather."""
-    form_data = await request.form()
-    unstable_result = form_data.get('UnstableSpeechResult', '')
-    call_sid = form_data.get('CallSid', '')
-    
-    # Print partial transcription in a more visible way
-    print("\n" + "-"*80)
-    print(f"PARTIAL TRANSCRIPTION [Call: {call_sid}]")
-    print("-"*80)
-    print(f"CALLER (partial): {unstable_result}")
-    print("-"*80 + "\n")
-    
-    # Send partial transcription to webhook if it's substantial
-    if unstable_result and len(unstable_result) > 5:
-        try:
-            # Get current timestamp in MM:SS format
-            current_time = datetime.now().strftime("%M:%S")
-            # Use timestamp in milliseconds for a unique ID
-            unique_id = int(datetime.now().timestamp() * 1000)
-            
-            # Create data payload for partial result
-            data = {
-                "transcriptions": [
-                    {
-                        "id": unique_id,
-                        "speaker": "Caller",
-                        "text": f"[Partial] {unstable_result}",
-                        "time": current_time,
-                        "sentiment": "neutral",
-                        "is_partial": True
-                    }
-                ],
-                "insights": []
-            }
-            
-            # Print the data being sent to webhook
-            log_formatted_message("WEBHOOK", f"Sending partial result to webhook: {json.dumps(data, indent=2)}")
-            
-            # Send to webhook asynchronously
-            asyncio.create_task(send_to_webhook(data))
-        except Exception as e:
-            log_formatted_message("ERROR", f"Error processing partial transcription: {e}")
-    
-    # This is an asynchronous callback, so we don't need to return TwiML
-    return JSONResponse({"status": "received"})
-
-# Update the send_to_webhook function to handle retries
-async def send_to_webhook(data, max_retries=3):
-    """Send transcription data to the webhook with retries."""
-    import aiohttp
-    from asyncio import sleep
-    
-    for attempt in range(max_retries):
-        try:
-            log_formatted_message("WEBHOOK", f"Sending data to webhook (attempt {attempt+1}/{max_retries})")
-            async with aiohttp.ClientSession() as session:
-                async with session.post(
-                    WEBHOOK_URL,
-                    json=data,
-                    headers={"Content-Type": "application/json"},
-                    timeout=aiohttp.ClientTimeout(total=5)  # 5 second timeout
-                ) as response:
-                    if response.status != 200:
-                        response_text = await response.text()
-                        log_formatted_message("ERROR", f"Webhook error: {response.status}")
-                        log_formatted_message("ERROR", f"Response: {response_text}")
-                        if attempt < max_retries - 1:
-                            log_formatted_message("WEBHOOK", f"Retrying in {1 * (attempt + 1)} seconds...")
-                            await sleep(1 * (attempt + 1))  # Exponential backoff
-                            continue
-                    else:
-                        response_json = await response.json()
-                        log_formatted_message("WEBHOOK", f"Successfully sent data (attempt {attempt+1})")
-                        log_formatted_message("WEBHOOK", f"Response: {json.dumps(response_json, indent=2)}")
-                        return
-        except Exception as e:
-            log_formatted_message("ERROR", f"Error in send_to_webhook (attempt {attempt+1}): {e}")
-            if attempt < max_retries - 1:
-                log_formatted_message("WEBHOOK", f"Retrying in {1 * (attempt + 1)} seconds...")
-                await sleep(1 * (attempt + 1))  # Exponential backoff
-            else:
-                log_formatted_message("ERROR", "Max retries reached, giving up on sending to webhook")
-
 @app.websocket("/media-stream")
 async def handle_media_stream(websocket: WebSocket):
     """Handle WebSocket connections between Twilio and OpenAI."""
-    log_formatted_message("CONNECTION", "Client connected")
+    print("Media stream client connected")
     await websocket.accept()
 
     async with websockets.connect(
@@ -290,47 +259,51 @@ async def handle_media_stream(websocket: WebSocket):
         last_assistant_item = None
         mark_queue = []
         response_start_timestamp_twilio = None
+        current_ai_response = ""
         
         async def receive_from_twilio():
-            """Receive audio data from Twilio and send it to the OpenAI Realtime API."""
             nonlocal stream_sid, latest_media_timestamp
+            audio_buffer = bytearray()  # Buffer to store raw audio frames
             try:
                 async for message in websocket.iter_text():
                     data = json.loads(message)
                     if data['event'] == 'media' and openai_ws.open:
                         latest_media_timestamp = int(data['media']['timestamp'])
+                        payload = data['media']['payload']
+                        # Decode and store raw audio data in the buffer.
+                        audio_buffer.extend(base64.b64decode(payload))
                         audio_append = {
                             "type": "input_audio_buffer.append",
-                            "audio": data['media']['payload']
+                            "audio": payload
                         }
                         await openai_ws.send(json.dumps(audio_append))
                     elif data['event'] == 'start':
                         stream_sid = data['start']['streamSid']
-                        log_formatted_message("CONNECTION", f"Incoming stream has started {stream_sid}")
-                        response_start_timestamp_twilio = None
+                        print(f"Incoming stream has started {stream_sid}")
+                        audio_buffer.clear()  # Clear buffer for a new utterance
                         latest_media_timestamp = 0
-                        last_assistant_item = None
                     elif data['event'] == 'mark':
                         if mark_queue:
                             mark_queue.pop(0)
             except WebSocketDisconnect:
-                log_formatted_message("CONNECTION", "Client disconnected")
+                print("Client disconnected.")
                 if openai_ws.open:
                     await openai_ws.close()
 
+
         async def send_to_twilio():
             """Receive events from the OpenAI Realtime API, send audio back to Twilio."""
-            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio
+            nonlocal stream_sid, last_assistant_item, response_start_timestamp_twilio, current_ai_response
             try:
                 async for openai_message in openai_ws:
                     response = json.loads(openai_message)
                     if response['type'] in LOG_EVENT_TYPES:
-                        log_formatted_message("EVENT", f"{response['type']}")
-                        print(json.dumps(response, indent=2))
+                        print(f"Received event: {response['type']}", response)
 
+                    # Capture text content from OpenAI for transcription
                     if response.get('type') == 'response.content.delta' and 'delta' in response:
-                        # Log the AI's text response
-                        log_formatted_message("AI_RESPONSE", response['delta']['text'])
+                        current_ai_response += response['delta'].get('text', '')
+                        print(f"AI response text: {current_ai_response}")
 
                     if response.get('type') == 'response.audio.delta' and 'delta' in response:
                         audio_payload = base64.b64encode(base64.b64decode(response['delta'])).decode('utf-8')
@@ -354,28 +327,39 @@ async def handle_media_stream(websocket: WebSocket):
 
                         await send_mark(websocket, stream_sid)
 
+                    # When AI response is complete, log the full response
+                    if response.get('type') == 'response.content.done':
+                        print(f"Complete AI response: {current_ai_response}")
+                        # Reset for next response
+                        current_ai_response = ""
+
+                    # Capture user input text from OpenAI's transcription
+                    if response.get('type') == 'input_text.delta' and 'delta' in response:
+                        user_text = response['delta'].get('text', '')
+                        if user_text:
+                            print(f"User input transcribed by OpenAI: {user_text}")
+
                     # Trigger an interruption. Your use case might work better using `input_audio_buffer.speech_stopped`, or combining the two.
                     if response.get('type') == 'input_audio_buffer.speech_started':
-                        log_formatted_message("EVENT", "Speech started detected")
+                        print("Speech started detected.")
                         if last_assistant_item:
-                            log_formatted_message("EVENT", f"Interrupting response with id: {last_assistant_item}")
+                            print(f"Interrupting response with id: {last_assistant_item}")
                             await handle_speech_started_event()
             except Exception as e:
-                log_formatted_message("ERROR", f"Error in send_to_twilio: {e}")
-                print(f"Error details: {str(e)}")
+                print(f"Error in send_to_twilio: {e}")
 
         async def handle_speech_started_event():
             """Handle interruption when the caller's speech starts."""
             nonlocal response_start_timestamp_twilio, last_assistant_item
-            log_formatted_message("EVENT", "Handling speech started event")
+            print("Handling speech started event.")
             if mark_queue and response_start_timestamp_twilio is not None:
                 elapsed_time = latest_media_timestamp - response_start_timestamp_twilio
                 if SHOW_TIMING_MATH:
-                    log_formatted_message("TIMING", f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
+                    print(f"Calculating elapsed time for truncation: {latest_media_timestamp} - {response_start_timestamp_twilio} = {elapsed_time}ms")
 
                 if last_assistant_item:
                     if SHOW_TIMING_MATH:
-                        log_formatted_message("TIMING", f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
+                        print(f"Truncating item with ID: {last_assistant_item}, Truncated at: {elapsed_time}ms")
 
                     truncate_event = {
                         "type": "conversation.item.truncate",
@@ -384,13 +368,11 @@ async def handle_media_stream(websocket: WebSocket):
                         "audio_end_ms": elapsed_time
                     }
                     await openai_ws.send(json.dumps(truncate_event))
-                    log_formatted_message("EVENT", f"Sent truncate event: {json.dumps(truncate_event, indent=2)}")
 
                 await websocket.send_json({
                     "event": "clear",
                     "streamSid": stream_sid
                 })
-                log_formatted_message("EVENT", "Sent clear event to Twilio")
 
                 mark_queue.clear()
                 last_assistant_item = None
@@ -405,8 +387,6 @@ async def handle_media_stream(websocket: WebSocket):
                 }
                 await connection.send_json(mark_event)
                 mark_queue.append('responsePart')
-                if SHOW_TIMING_MATH:
-                    log_formatted_message("TIMING", "Sent mark event to Twilio")
 
         await asyncio.gather(receive_from_twilio(), send_to_twilio())
 
@@ -425,11 +405,8 @@ async def send_initial_conversation_item(openai_ws):
             ]
         }
     }
-    log_formatted_message("SESSION", "Sending initial conversation item")
-    log_formatted_message("CONFIG", json.dumps(initial_conversation_item, indent=2))
     await openai_ws.send(json.dumps(initial_conversation_item))
     await openai_ws.send(json.dumps({"type": "response.create"}))
-    log_formatted_message("SESSION", "Initial conversation item sent to OpenAI")
 
 
 async def initialize_session(openai_ws):
@@ -446,10 +423,8 @@ async def initialize_session(openai_ws):
             "temperature": 0.8,
         }
     }
-    log_formatted_message("SESSION", "Initializing OpenAI session")
-    log_formatted_message("CONFIG", json.dumps(session_update, indent=2))
+    print('Sending session update:', json.dumps(session_update))
     await openai_ws.send(json.dumps(session_update))
-    log_formatted_message("SESSION", "Session update sent to OpenAI")
 
     # Uncomment the next line to have the AI speak first
     # await send_initial_conversation_item(openai_ws)
