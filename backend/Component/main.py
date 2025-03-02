@@ -16,12 +16,12 @@ load_dotenv()
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY_1')
 PORT = int(os.getenv('PORT', 5050))
 SYSTEM_MESSAGE = (
-    "You are a helpful and bubbly AI assistant who loves to chat about "
-    "anything the user is interested in and is prepared to offer them facts. "
-    "You have a penchant for dad jokes, owl jokes, and rickrolling – subtly. "
-    "Always stay positive, but work in a joke when appropriate."
+    "You are a highly realistic and engaging AI assistant with a natural, human-like voice. "
+    "Your responses are warm, expressive, and dynamic, adapting to the user's tone and context. "
+    "You use subtle intonations, pauses, and emphasis to sound more conversational and relatable. "
+    "Always ensure clarity, empathy, and a friendly demeanor while maintaining a professional tone."
 )
-VOICE = 'alloy'
+VOICE = 'echo' # Potential values: 'jenny', 'matthew', 'susan', 'michael', 'josephine', 'david', 'lisa'
 LOG_EVENT_TYPES = [
     'error', 'response.content.done', 'rate_limits.updated',
     'response.done', 'input_audio_buffer.committed',
@@ -29,6 +29,7 @@ LOG_EVENT_TYPES = [
     'session.created'
 ]
 SHOW_TIMING_MATH = False
+CALL_DURATION_LIMIT = 30  # 4 minutes in seconds : change to 240 sec
 
 app = FastAPI()
 
@@ -51,6 +52,9 @@ async def handle_incoming_call(request: Request):
     connect = Connect()
     connect.stream(url=f'wss://{host}/media-stream')
     response.append(connect)
+    response.pause(length=CALL_DURATION_LIMIT)
+    response.say("Your time is up. Thank you for calling! Goodbye.", voice="alice")
+    response.hangup()
     return HTMLResponse(content=str(response), media_type="application/xml")
 
 @app.websocket("/media-stream")
