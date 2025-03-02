@@ -41,9 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include the call router under the "/call" prefix.
-# app.include_router(call_router, prefix="/call")
-
 @app.get("/")
 async def home():
     return {"message": "SafeCall API is running!"}
