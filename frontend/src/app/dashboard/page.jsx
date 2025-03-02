@@ -113,27 +113,31 @@ export default function Dashboard() {
     if (!testMessage.trim()) return;
     
     try {
+      // Generate unique IDs based on timestamp
+      const uniqueId = Date.now();
+      
       // Create a sample data object
       const data = {
         transcriptions: [
-          ...transcriptions,
           {
-            id: transcriptions.length + 1,
+            id: uniqueId,
             speaker: testSpeaker,
             text: testMessage,
             time: new Date().toLocaleTimeString([], { minute: '2-digit', second: '2-digit' }),
             sentiment: testSpeaker === 'Caller' ? 'anxious' : 'supportive'
           }
         ],
-        insights: testSpeaker === 'Caller' && testMessage.toLowerCase().includes('help') ? [
-          ...insights,
-          {
-            id: insights.length + 1,
-            type: 'warning',
-            text: `Detected keyword: "help" in ${testSpeaker}'s message`
-          }
-        ] : insights
+        insights: []
       };
+      
+      // Add insight if it's a caller message with "help"
+      if (testSpeaker === 'Caller' && testMessage.toLowerCase().includes('help')) {
+        data.insights.push({
+          id: uniqueId + 1,
+          type: 'warning',
+          text: `Detected keyword: "help" in ${testSpeaker}'s message`
+        });
+      }
       
       // Send to the webhook
       const response = await fetch('/api/webhook', {
@@ -171,13 +175,32 @@ export default function Dashboard() {
       const data = await response.json();
       
       // Update the local state with the fetched data
-      if (data.transcriptions && data.transcriptions.length > 0) {
-        setTranscriptions(data.transcriptions);
+      if (data.transcriptions && Array.isArray(data.transcriptions)) {
+        // Filter out partial transcriptions if there are complete ones
+        const completeTranscriptions = data.transcriptions.filter(t => !t.is_partial);
+        const partialTranscriptions = data.transcriptions.filter(t => t.is_partial);
+        
+        // Only keep partial transcriptions if there are no complete ones
+        if (completeTranscriptions.length > 0) {
+          setTranscriptions(completeTranscriptions);
+        } else {
+          setTranscriptions(data.transcriptions);
+        }
+        
+        // Sort transcriptions by ID (chronological order)
+        setTranscriptions(prev => [...prev].sort((a, b) => a.id - b.id));
       }
       
-      if (data.insights && data.insights.length > 0) {
+      if (data.insights && Array.isArray(data.insights)) {
         setInsights(data.insights);
+        // Sort insights by ID (chronological order)
+        setInsights(prev => [...prev].sort((a, b) => a.id - b.id));
       }
+      
+      console.log('Fetched data from webhook:', {
+        transcriptionsCount: data.transcriptions?.length || 0,
+        insightsCount: data.insights?.length || 0
+      });
     } catch (error) {
       console.error('Error fetching latest data:', error);
     }

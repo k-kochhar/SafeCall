@@ -118,6 +118,8 @@ async def handle_transcription(request: Request):
         try:
             # Get current timestamp in MM:SS format
             current_time = datetime.now().strftime("%M:%S")
+            # Use timestamp in milliseconds for a unique ID
+            unique_id = int(datetime.now().timestamp() * 1000)
             
             # Basic sentiment analysis (this is very simple - you might want to use a proper NLP service)
             sentiment = "neutral"
@@ -130,7 +132,7 @@ async def handle_transcription(request: Request):
             data = {
                 "transcriptions": [
                     {
-                        "id": int(datetime.now().timestamp()),  # Use timestamp as ID
+                        "id": unique_id,  # Use unique timestamp as ID
                         "speaker": "Caller",
                         "text": speech_result,
                         "time": current_time,
@@ -143,25 +145,25 @@ async def handle_transcription(request: Request):
             # Add insights based on content
             if sentiment == "urgent":
                 data["insights"].append({
-                    "id": int(datetime.now().timestamp()),
+                    "id": unique_id + 1,  # Ensure unique ID
                     "type": "warning",
                     "text": f"Detected urgency in caller's message: '{speech_result}'"
                 })
             
             # Add confidence as insight
             data["insights"].append({
-                "id": int(datetime.now().timestamp()) + 1,
+                "id": unique_id + 2,  # Ensure unique ID
                 "type": "info",
                 "text": f"Transcription confidence: {confidence}"
             })
             
             # Print the data being sent to webhook
-            print(f"Sending to webhook: {json.dumps(data, indent=2)}")
+            log_formatted_message("WEBHOOK", f"Sending to webhook: {json.dumps(data, indent=2)}")
             
             # Send to webhook asynchronously
             asyncio.create_task(send_to_webhook(data))
         except Exception as e:
-            print(f"Error processing transcription: {e}")
+            log_formatted_message("ERROR", f"Error processing transcription: {e}")
     
     # Continue the call with another Gather to keep transcribing
     response = VoiceResponse()
@@ -201,12 +203,14 @@ async def handle_partial_transcription(request: Request):
         try:
             # Get current timestamp in MM:SS format
             current_time = datetime.now().strftime("%M:%S")
+            # Use timestamp in milliseconds for a unique ID
+            unique_id = int(datetime.now().timestamp() * 1000)
             
             # Create data payload for partial result
             data = {
                 "transcriptions": [
                     {
-                        "id": int(datetime.now().timestamp()),
+                        "id": unique_id,
                         "speaker": "Caller",
                         "text": f"[Partial] {unstable_result}",
                         "time": current_time,
@@ -218,12 +222,12 @@ async def handle_partial_transcription(request: Request):
             }
             
             # Print the data being sent to webhook
-            print(f"Sending partial result to webhook: {json.dumps(data, indent=2)}")
+            log_formatted_message("WEBHOOK", f"Sending partial result to webhook: {json.dumps(data, indent=2)}")
             
             # Send to webhook asynchronously
             asyncio.create_task(send_to_webhook(data))
         except Exception as e:
-            print(f"Error processing partial transcription: {e}")
+            log_formatted_message("ERROR", f"Error processing partial transcription: {e}")
     
     # This is an asynchronous callback, so we don't need to return TwiML
     return JSONResponse({"status": "received"})

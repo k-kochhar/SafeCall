@@ -12,25 +12,28 @@
 // Replace with your actual webhook URL
 const WEBHOOK_URL = 'http://localhost:3000/api/webhook';
 
+// Generate unique IDs based on timestamp
+const baseId = Date.now();
+
 // Sample transcription data
 const sampleData = {
   transcriptions: [
     { 
-      id: 1, 
+      id: baseId, 
       speaker: 'Caller', 
       text: 'Hey, I need you to come pick me up right now.', 
       time: '00:05', 
       sentiment: 'urgent' 
     },
     { 
-      id: 2, 
+      id: baseId + 1, 
       speaker: 'You', 
       text: 'What\'s going on? Are you okay?', 
       time: '00:08', 
       sentiment: 'concerned' 
     },
     { 
-      id: 3, 
+      id: baseId + 2, 
       speaker: 'Caller', 
       text: 'I\'m at the party we talked about, but I don\'t feel safe here. Can you come get me?', 
       time: '00:15', 
@@ -39,17 +42,17 @@ const sampleData = {
   ],
   insights: [
     { 
-      id: 1, 
+      id: baseId + 100, 
       type: 'warning', 
       text: 'Detected anxiety in caller\'s voice' 
     },
     { 
-      id: 2, 
+      id: baseId + 101, 
       type: 'info', 
       text: 'Location shared: 1234 Main Street' 
     },
     { 
-      id: 3, 
+      id: baseId + 102, 
       type: 'alert', 
       text: 'Keywords detected: "don\'t feel safe"' 
     }
@@ -90,18 +93,18 @@ async function simulateConversation() {
   
   // Add a new message after 3 seconds
   setTimeout(async () => {
+    const newMessageId = Date.now();
     const updatedData = {
       transcriptions: [
-        ...sampleData.transcriptions,
         { 
-          id: 4, 
+          id: newMessageId, 
           speaker: 'You', 
           text: 'I\'ll be there in 10 minutes. Stay on the phone with me.', 
           time: '00:20', 
           sentiment: 'supportive' 
         }
       ],
-      insights: sampleData.insights
+      insights: []
     };
     
     await sendToWebhook(updatedData);
@@ -109,11 +112,11 @@ async function simulateConversation() {
     
     // Add another message after 3 more seconds
     setTimeout(async () => {
+      const finalMessageId = Date.now();
       const finalData = {
         transcriptions: [
-          ...updatedData.transcriptions,
           { 
-            id: 5, 
+            id: finalMessageId, 
             speaker: 'Caller', 
             text: 'Thank you. I\'ll wait by the front entrance.', 
             time: '00:25', 
@@ -121,9 +124,8 @@ async function simulateConversation() {
           }
         ],
         insights: [
-          ...sampleData.insights,
           { 
-            id: 4, 
+            id: finalMessageId + 100, 
             type: 'info', 
             text: 'Caller\'s stress level decreasing' 
           }
@@ -145,13 +147,13 @@ simulateConversation().catch(console.error);
  * 
  * 1. When new transcription data is available:
  *    sendToWebhook({
- *      transcriptions: yourTranscriptionData,
- *      insights: yourInsightsData
+ *      transcriptions: [{ id: Date.now(), speaker: '...', text: '...' }],
+ *      insights: [{ id: Date.now() + 100, type: '...', text: '...' }]
  *    });
  * 
  * 2. The webhook accepts any valid JSON, so you can customize
  *    the data structure as needed.
  * 
- * 3. The SafeCall app will poll the webhook endpoint to get
- *    the latest data and update the UI accordingly.
+ * 3. The SafeCall app will accumulate all transcriptions and insights
+ *    and display them in chronological order.
  */ 
