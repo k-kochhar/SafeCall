@@ -6,6 +6,7 @@ import logging
 
 # fastapi imports
 from fastapi import FastAPI, HTTPException, Body, WebSocket, Request
+import certifi
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.websockets import WebSocketDisconnect
@@ -34,7 +35,7 @@ PORT = int(os.getenv('PORT', 5050))
 
 # MongoDB Connection
 MONGO_URI = os.getenv("MONGO_URI")
-client = MongoClient(MONGO_URI, server_api=ServerApi('1'))
+client = MongoClient(MONGO_URI, server_api=ServerApi('1'), tlsCAFile=certifi.where())
 
 # Update to use the Testing database and Users collection
 db = client.Testing

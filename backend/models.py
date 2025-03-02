@@ -4,7 +4,8 @@ from bson import ObjectId
 
 # Data Models
 class EmergencyContact(BaseModel):
-    name: str
+    first_name: str
+    last_name: str
     phone_number: str
     relationship: Optional[str] = None
 
