@@ -1,4 +1,4 @@
-# SafeCall – First Place at HenHacks
+# SafeCall – [First Place at HenHacks](https://devpost.com/software/safecall)
 <p align="center">
 
 <img width="790" alt="Screenshot 2025-04-01 at 7 07 26 PM" src="https://github.com/user-attachments/assets/fd8840f4-dee1-4ade-9322-a26e334ff951" />
