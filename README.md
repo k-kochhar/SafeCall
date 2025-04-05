@@ -10,10 +10,13 @@ There are moments when calling for help isn’t an option, when speaking up coul
 
 SafeCall combines real-time conversational AI with emergency data logging, creating a system that’s believable, reassuring, and designed to protect.
 <p align="center">
+  <img width="800" alt="analytics_safecall" src="https://github.com/user-attachments/assets/49faba63-fff0-4809-8b82-1c651f112c87" />
+</p>
 
-<img width="800" alt="analytics_safecall" src="https://github.com/user-attachments/assets/49faba63-fff0-4809-8b82-1c651f112c87" />
-<img width="215" alt="Screenshot 2025-04-01 at 7 12 25 PM" src="https://github.com/user-attachments/assets/879061ca-658f-43f8-97cc-664920055af3" />
+#
 
+<p align="center">
+  <img width="215" alt="Screenshot 2025-04-01 at 7 12 25 PM" src="https://github.com/user-attachments/assets/879061ca-658f-43f8-97cc-664920055af3" />
 </p>
 
 ---
