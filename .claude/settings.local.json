@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"twilio\\\\|Twilio\" /c/Users/Javie/Documents/GitHub/scaile/SafeCall --include=*.js --include=*.py --include=*.ts --include=*.json)",
+      "Bash(grep -r \"openai\\\\|OpenAI\\\\|GPT\" /c/Users/Javie/Documents/GitHub/scaile/SafeCall --include=*.js --include=*.py --include=*.ts)",
+      "Bash(grep -r \"websocket\\\\|socket\\\\.io\\\\|ws://\" /c/Users/Javie/Documents/GitHub/scaile/SafeCall --include=*.js --include=*.py)"
+    ]
+  }
+}
